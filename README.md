@@ -30,11 +30,15 @@ This is the easiest way. Add the marketplace and install the plugin directly ins
 /plugin install upwork-scraper@upwork-plugin-claude
 ```
 
-Then install the Python dependencies (run this in your terminal, not inside Claude Code):
+Then restart Claude Code and run the install skill:
+
+```
+/upwork-scraper:install
+```
+
+This automatically installs Python dependencies and the browser. If you prefer to do it manually:
 
 ```bash
-# Find where Claude Code cached the plugin
-# Usually at: ~/.claude/plugins/cache/upwork-scraper/
 cd ~/.claude/plugins/cache/upwork-scraper/
 uv sync
 uv run playwright install firefox
@@ -80,10 +84,11 @@ Add this to your project's `.claude/settings.json` so team members get prompted 
 
 ## Usage
 
-Once loaded, you get 4 slash commands:
+Once loaded, you get 5 slash commands:
 
 | Command | Description |
 |---------|-------------|
+| `/upwork-scraper:install` | Install dependencies (uv, packages, browser) |
 | `/upwork-scraper:best-matches` | Fetch your personalized Best Matches |
 | `/upwork-scraper:search <query>` | Search jobs (e.g., `/upwork-scraper:search python fastapi`) |
 | `/upwork-scraper:analyze <skill>` | Analyze market demand for a skill |
@@ -91,7 +96,7 @@ Once loaded, you get 4 slash commands:
 
 ### First-time setup
 
-The first time you run a command, the plugin will:
+After installing, run `/upwork-scraper:install` to set up dependencies automatically. Then the first time you run a scraping command, the plugin will:
 
 1. Open a Camoufox browser window
 2. Ask you to log in to Upwork and solve any CAPTCHAs
