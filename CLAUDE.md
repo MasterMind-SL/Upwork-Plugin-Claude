@@ -198,7 +198,20 @@ uv run pytest tests/test_parser.py -k test_name  # Single test
 
 ## Skill YAML Frontmatter
 
-Only these attributes are supported: `name`, `description`, `compatibility`, `license`, `metadata`. Do NOT use `argument-hint`, `context`, or `agent` — they are not recognized.
+Supported attributes in `SKILL.md` frontmatter:
+
+| Field | Description |
+|-------|-------------|
+| `name` | Display name (defaults to directory name) |
+| `description` | What the skill does and when to use it |
+| `argument-hint` | Hint shown during autocomplete (e.g., `[query]`) |
+| `disable-model-invocation` | `true` to prevent Claude from auto-invoking (manual `/name` only) |
+| `user-invocable` | `false` to hide from `/` menu (Claude-only background knowledge) |
+| `allowed-tools` | Tools Claude can use without permission when skill is active |
+| `model` | Model to use when skill is active |
+| `context` | `fork` to run in an isolated subagent context |
+| `agent` | Subagent type when `context: fork` (e.g., `Explore`, `Plan`) |
+| `hooks` | Hooks scoped to the skill's lifecycle |
 
 ## Important Patterns
 
