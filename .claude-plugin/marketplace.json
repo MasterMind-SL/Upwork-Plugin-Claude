@@ -1,0 +1,25 @@
+{
+  "name": "upwork-plugin-claude",
+  "owner": {
+    "name": "MasterMind-SL"
+  },
+  "metadata": {
+    "description": "Upwork tools for Claude Code: scrape jobs, analyze markets, and build portfolios",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "upwork-scraper",
+      "source": ".",
+      "description": "Scrape Upwork jobs, analyze market demand, and design portfolio projects",
+      "version": "0.1.0",
+      "author": {
+        "name": "MasterMind-SL"
+      },
+      "repository": "https://github.com/MasterMind-SL/Upwork-Plugin-Claude",
+      "license": "MIT",
+      "keywords": ["upwork", "jobs", "scraper", "portfolio", "freelance"],
+      "category": "freelance"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "upwork-scraper",
+  "description": "Scrape Upwork jobs, analyze market demand, and design portfolio projects",
+  "version": "0.1.0",
+  "author": {
+    "name": "MasterMind-SL"
+  },
+  "repository": "https://github.com/MasterMind-SL/Upwork-Plugin-Claude",
+  "license": "MIT",
+  "keywords": ["upwork", "jobs", "scraper", "portfolio", "freelance"]
+}
