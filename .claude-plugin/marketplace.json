@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Upwork plugin for Claude Code: scrape jobs, analyze market demand, write proposals, optimize rates, and build portfolios — 5 skills + 5 AI agents",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "upwork-scraper",
       "source": "./",
       "description": "Scrape Upwork jobs, analyze market demand, write proposals, evaluate postings, optimize rates, review profiles, and design portfolio projects. Includes 5 slash commands and 5 specialized AI agents.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "author": {
         "name": "MasterMind-SL"
       },
