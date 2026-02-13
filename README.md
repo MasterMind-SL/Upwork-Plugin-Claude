@@ -2,7 +2,7 @@
 
 A Claude Code plugin that scrapes Upwork jobs, analyzes market demand, and helps freelancers build winning portfolios.
 
-Since Upwork has no public job search API (GraphQL API doesn't support it, RSS feeds were discontinued Aug 2024), this plugin uses browser automation to scrape listings and then fetches details in parallel via HTTP.
+Since Upwork has no public job search API (GraphQL API doesn't support it, RSS feeds were discontinued Aug 2024), this plugin uses Camoufox browser automation to scrape all listings directly. Cloudflare blocks non-browser HTTP requests (403), so all page fetching goes through the browser.
 
 ## Features
 
@@ -142,12 +142,11 @@ Claude Code <--STDIO/JSON-RPC--> MCP Server (src/server.py)
                                       |
                                  Session Manager
                                       |
-                              +-------+-------+
-                         Camoufox          httpx
-                         (login)      (parallel scraping)
+                                 Camoufox browser
+                                 (login + scraping)
 ```
 
-The MCP server auto-starts the Session Manager on `localhost:8024`. Camoufox handles authentication and CAPTCHA solving, then transfers cookies to httpx for fast parallel scraping.
+The MCP server auto-starts the Session Manager on `localhost:8024`. Camoufox handles authentication, CAPTCHA solving, and all page scraping. Job listings are parsed directly from browser-rendered HTML tiles; individual job details are fetched by navigating the browser to each job page.
 
 ## Configuration
 

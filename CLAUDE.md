@@ -15,12 +15,13 @@ Claude Code ←STDIO/JSON-RPC→ MCP Server (src/server.py)
                                    │
                               Session Manager (src/session_manager/manager.py)
                                    │
-                          ┌────────┴────────┐
-                     Camoufox           httpx
-                     (login/CAPTCHA)    (fast parallel scraping)
+                              Camoufox browser
+                              (login/CAPTCHA/scraping)
 ```
 
 The **MCP Server** (`src/server.py`) auto-starts the **Session Manager** (aiohttp on `localhost:8024`) inside its FastMCP lifespan. No separate process needed — everything starts when the plugin loads.
+
+**All scraping uses the Camoufox browser directly.** Cloudflare ties `cf_clearance` cookies to the browser's TLS fingerprint, so httpx requests get 403 Forbidden even with transferred cookies. The browser navigates to each page, and the parser extracts data from the rendered HTML.
 
 All stdout is reserved for MCP JSON-RPC; use stderr for logging.
 
@@ -125,10 +126,10 @@ uv run pytest tests/test_parser.py -k test_name  # Single test
 | Module | Purpose |
 |--------|---------|
 | `src/server.py` | MCP entry point. Registers 11 `@mcp.tool()` functions. Lifespan auto-starts Session Manager. |
-| `src/session_manager/browser.py` | Camoufox lifecycle: launch, login detection, cookie extraction, page scrolling. |
-| `src/session_manager/scraper.py` | httpx-based HTTP scraper using cookies stolen from the browser. |
+| `src/session_manager/browser.py` | Camoufox lifecycle: launch, login detection, page navigation, scrolling. |
+| `src/session_manager/scraper.py` | Legacy httpx-based scraper (unused — Cloudflare blocks httpx with 403). Kept for reference. |
 | `src/session_manager/parser.py` | Extracts job data via 3 strategies: `__NUXT_DATA__` JSON → CSS selectors → meta tags. |
-| `src/session_manager/manager.py` | aiohttp HTTP service orchestrating browser + scraper + SQLite. |
+| `src/session_manager/manager.py` | aiohttp HTTP service orchestrating browser + parser + SQLite. Converts tile data directly to Job objects for listings; uses browser navigation for individual job details. |
 | `src/database/repository.py` | Async SQLite CRUD with smart upsert (ON CONFLICT keeps richer data via COALESCE). |
 | `src/tools/` | Tool implementations grouped by domain: session, scraping, query, analysis. |
 | `src/constants.py` | All Upwork URLs, CSS selectors, category UIDs, search parameter mappings. |
@@ -147,7 +148,9 @@ Only these attributes are supported: `name`, `description`, `compatibility`, `li
 
 ## Important Patterns
 
-- **Cookie transfer**: Browser authenticates → `context.cookies()` extracts cookies → passed to `httpx.AsyncClient` for fast parallel requests
+- **Browser-only scraping**: All page fetching goes through Camoufox. Cloudflare ties `cf_clearance` cookies to the browser's TLS fingerprint (JA3 hash), so httpx gets 403 even with valid cookies. The browser navigates to pages, and the parser extracts data from rendered HTML.
+- **Tile-based listings**: Best Matches and Search results are parsed as tiles from the list page HTML. Each tile provides: id, url, title, description, budget, skills, experience level, proposals, posted date. Job objects are created directly from tile data without fetching individual detail pages.
+- **Browser-based job details**: When full details for a single job are requested, the browser navigates to the job page and the parser uses 3-strategy extraction: `__NUXT_DATA__` → HTML selectors → meta tags.
 - **`__NUXT_DATA__` parsing**: Upwork uses Nuxt.js; job data is serialized as a flat array with index-based references in `<script id="__NUXT_DATA__">` tags
 - **CAPTCHA handling**: Camoufox avoidance → Cloudflare auto-resolve (30s wait) → human-in-the-loop (visible browser window)
 - **Upwork has no job search API**: Official GraphQL API doesn't support it, RSS feeds were discontinued Aug 2024. Browser scraping is the only option.
@@ -192,6 +195,7 @@ All logs go to **stderr** (tagged with `[DEBUG]`, `[SCRAPE]`, `[PARSER]`, `[SCRA
 
 ### Scrape flow and what to look for
 
+**Best Matches / Search (tile-based):**
 ```
 [SCRAPE] Step 1: Navigating to .../best-matches
 [DEBUG]  Landed on URL: ...        ← if /login → session expired
@@ -204,7 +208,13 @@ All logs go to **stderr** (tagged with `[DEBUG]`, `[SCRAPE]`, `[PARSER]`, `[SCRA
 [PARSER] Body text preview: ...    ← if 'verify you are human' → CAPTCHA
 [PARSER] Found N tiles with selector: ...   ← if 0 → Upwork changed HTML structure
 [PARSER] data-test attrs on page: [...]     ← use these to write new selectors
-[SCRAPER] _fetch_page: status=200, url=..., size=N chars   ← per job detail
+[SCRAPE] Step 3 done: got N jobs from tiles
+```
+
+**Individual job detail (browser navigation):**
+```
+[DEBUG]  get_page_html: navigating to /jobs/Title_~0ID/
+[DEBUG]  Landed on URL: ...
 [PARSER] NUXT extracted N fields: [...]
 [PARSER] HTML selectors: found N, added M new
 [PARSER] Final job 'Title...' has fields: [...]
@@ -222,7 +232,6 @@ When Best Matches is scraped, the raw HTML is saved to `data/debug_best_matches.
 | Page title = "Just a moment" or body = "Checking your browser" | Cloudflare block | CAPTCHA must be solved in visible browser |
 | 0 tiles, no `data-test` attrs | Page is empty/JS didn't render | Increase scroll wait, check if Upwork changed layout |
 | 0 tiles, `data-test` attrs logged | Selectors outdated | Update `tile_selectors` in `parser.py` using the logged attrs |
-| `_fetch_page: status=403` | IP/session blocked by Upwork | Wait, restart browser, try different network |
 | NUXT fields = 0, HTML fields = 0 | Job detail page structure changed | Check `data/debug_best_matches.html`, update field maps in `parser.py` |
 
 ### Camoufox browser appearance

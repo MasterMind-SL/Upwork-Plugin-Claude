@@ -20,16 +20,18 @@ import json
 import logging
 import sys
 from datetime import datetime
+from urllib.parse import urlencode
 
 import aiosqlite
 from aiohttp import web
 
 from ..config import DB_PATH, SESSION_MANAGER_HOST, SESSION_MANAGER_PORT, ensure_dirs
+from ..constants import UPWORK_BASE, UPWORK_SEARCH_URL
 from ..database.models import initialize_db
 from ..database.repository import JobRepository
-from ..models.job import SearchParams
+from ..models.job import Job, SearchParams
 from .browser import BrowserSession
-from .scraper import UpworkScraper
+from .parser import parse_job_detail, parse_job_tiles_from_html
 
 logger = logging.getLogger(__name__)
 if not logger.handlers:
@@ -62,11 +64,27 @@ class SessionManager:
         if self.db:
             await self.db.close()
 
-    def _get_scraper(self) -> UpworkScraper:
-        """Create a scraper with current session cookies."""
-        if not self.browser.is_authenticated:
-            raise RuntimeError("Not authenticated. Start a session first.")
-        return UpworkScraper(self.browser.cookies, self.browser.user_agent)
+    def _tiles_to_jobs(self, tiles: list[dict], source: str = "") -> list[Job]:
+        """Convert parsed tile dicts into Job objects."""
+        jobs = []
+        for tile in tiles:
+            job = Job(
+                id=tile["id"],
+                url=tile["url"],
+                title=tile.get("title", "Untitled"),
+                description=tile.get("description", ""),
+                budget_type=tile.get("budget_type", ""),
+                budget_amount=tile.get("budget_amount"),
+                hourly_rate_min=tile.get("hourly_rate_min"),
+                hourly_rate_max=tile.get("hourly_rate_max"),
+                skills=tile.get("skills", []),
+                experience_level=tile.get("experience_level", ""),
+                proposals_count=tile.get("proposals_count"),
+                posted_date=tile.get("posted_date", ""),
+                source=source or tile.get("source", ""),
+            )
+            jobs.append(job)
+        return jobs
 
 
 # ── HTTP Handlers ────────────────────────────────────────────────────────────
@@ -145,12 +163,12 @@ async def handle_scrape_best_matches(request: web.Request) -> web.Response:
         except Exception as e:
             logger.warning(f"[SCRAPE] Could not save debug HTML: {e}")
 
-        # Step 3: Parse tiles + fetch details
-        logger.info(f"[SCRAPE] Step 3: Parsing tiles and fetching details (max_jobs={max_jobs})...")
-        logger.info(f"[SCRAPE] Cookie count for scraper: {len(mgr.browser.cookies)}")
-        async with mgr._get_scraper() as scraper:
-            jobs = await scraper.fetch_best_matches(max_jobs=max_jobs, browser_html=html)
-        logger.info(f"[SCRAPE] Step 3 done: got {len(jobs)} jobs with full details")
+        # Step 3: Parse tiles and create Job objects directly from tile data
+        logger.info(f"[SCRAPE] Step 3: Parsing tiles (max_jobs={max_jobs})...")
+        tiles = parse_job_tiles_from_html(html, source="best_matches")
+        tiles = tiles[:max_jobs]
+        jobs = mgr._tiles_to_jobs(tiles, source="best_matches")
+        logger.info(f"[SCRAPE] Step 3 done: got {len(jobs)} jobs from tiles")
 
         # Step 4: Save to database
         if mgr.repo:
@@ -183,10 +201,21 @@ async def handle_scrape_search(request: web.Request) -> web.Response:
         )
 
     try:
-        logger.info(f"[SEARCH] query='{params.query}', max_results={params.max_results}")
-        async with mgr._get_scraper() as scraper:
-            jobs = await scraper.search_jobs(params)
-        logger.info(f"[SEARCH] Got {len(jobs)} jobs from scraper")
+        url_params = params.to_url_params()
+        search_url = f"{UPWORK_SEARCH_URL}?{urlencode(url_params)}"
+        logger.info(f"[SEARCH] query='{params.query}', url={search_url}")
+
+        # Use browser to load search results (avoids Cloudflare 403)
+        html = await mgr.browser.get_page_html(search_url)
+        html = await mgr.browser.scroll_and_collect(max_scrolls=3)
+        logger.info(f"[SEARCH] Got {len(html)} chars of HTML after scrolling")
+
+        tiles = parse_job_tiles_from_html(html, source="search")
+        tiles = tiles[:params.max_results]
+        jobs = mgr._tiles_to_jobs(tiles, source="search")
+        for job in jobs:
+            job.search_query = params.query
+        logger.info(f"[SEARCH] Got {len(jobs)} jobs from tiles")
 
         if mgr.repo:
             await mgr.repo.upsert_jobs(jobs)
@@ -209,6 +238,9 @@ async def handle_scrape_job_detail(request: web.Request) -> web.Response:
     if not job_url:
         return web.json_response({"error": "job_url is required."}, status=400)
 
+    if job_url.startswith("~"):
+        job_url = f"{UPWORK_BASE}/jobs/{job_url}"
+
     if not mgr.browser.is_authenticated:
         return web.json_response(
             {"error": "Not authenticated. Call /start first."},
@@ -216,8 +248,9 @@ async def handle_scrape_job_detail(request: web.Request) -> web.Response:
         )
 
     try:
-        async with mgr._get_scraper() as scraper:
-            job = await scraper.fetch_job_detail(job_url)
+        # Use browser to navigate to job page (avoids Cloudflare 403)
+        html = await mgr.browser.get_page_html(job_url)
+        job = parse_job_detail(html, job_url)
 
         if mgr.repo:
             await mgr.repo.upsert_job(job)
