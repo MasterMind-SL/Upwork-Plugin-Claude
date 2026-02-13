@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "upwork-scraper",
-      "source": ".",
+      "source": "./",
       "description": "Scrape Upwork jobs, analyze market demand, and design portfolio projects",
       "version": "0.1.0",
       "author": {
