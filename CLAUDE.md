@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-A **Claude Code Plugin** that scrapes Upwork jobs, analyzes market demand, and suggests portfolio projects. It bundles an MCP server, 4 skills (slash commands), and 5 specialized agents.
+A **Claude Code Plugin** that scrapes Upwork jobs, analyzes market demand, and suggests portfolio projects. It bundles an MCP server, 5 skills (slash commands), and 5 specialized agents.
 
 ## Architecture
 
@@ -44,6 +44,8 @@ Inside Claude Code:
 /plugin install upwork-scraper@upwork-plugin-claude
 ```
 
+Then restart Claude Code and run `/upwork-scraper:install` to set up all dependencies automatically.
+
 Or install from a local clone:
 
 ```bash
@@ -58,9 +60,11 @@ claude --plugin-dir .
 ```
 upwork-scraper/
 ├── .claude-plugin/
-│   └── plugin.json          ← manifest (name, version, license)
+│   ├── plugin.json          ← manifest (name, version, license)
+│   └── marketplace.json     ← marketplace distribution config
 ├── .mcp.json                ← MCP server config (uv run python -m src.server)
-├── skills/                  ← 4 slash commands (SKILL.md each)
+├── skills/                  ← 5 slash commands (SKILL.md each)
+│   ├── install/
 │   ├── best-matches/
 │   ├── search/
 │   ├── analyze/
@@ -85,6 +89,10 @@ upwork-scraper/
 Components live at the plugin root, NOT inside `.claude-plugin/`. Only `plugin.json` goes there.
 
 ## Setup
+
+The easiest way is to run `/upwork-scraper:install` after loading the plugin — it handles everything automatically (installs uv, Python packages, Firefox browser, and creates `.env`).
+
+Manual setup:
 
 ```bash
 uv sync                                    # Install dependencies
@@ -128,8 +136,9 @@ uv run pytest tests/test_parser.py -k test_name  # Single test
 ## Plugin Components
 
 - **`.claude-plugin/plugin.json`**: Plugin manifest (name: `upwork-scraper`)
+- **`.claude-plugin/marketplace.json`**: Marketplace config for `/plugin marketplace add` distribution
 - **`.mcp.json`**: MCP server config. Uses `uv run --directory ${CLAUDE_PLUGIN_ROOT}` for cross-platform compatibility
-- **`skills/`**: 4 slash commands — `best-matches`, `search`, `analyze`, `portfolio`
+- **`skills/`**: 5 slash commands — `install`, `best-matches`, `search`, `analyze`, `portfolio`
 - **`agents/`**: 5 subagents — `portfolio-designer`, `proposal-writer`, `job-evaluator`, `rate-optimizer`, `profile-reviewer`
 
 ## Skill YAML Frontmatter

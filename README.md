@@ -6,6 +6,7 @@ Since Upwork has no public job search API (GraphQL API doesn't support it, RSS f
 
 ## Features
 
+- **One-Command Setup** - `/upwork-scraper:install` installs everything automatically
 - **Best Matches** - Fetch your personalized Upwork job recommendations
 - **Job Search** - Search with keywords, filters, and boolean queries
 - **Market Analysis** - Understand skill demand, budget ranges, and trends
@@ -15,9 +16,8 @@ Since Upwork has no public job search API (GraphQL API doesn't support it, RSS f
 ## Requirements
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) v1.0.33+
-- [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Python 3.11+
-- Firefox (installed automatically by Playwright)
+- [uv](https://docs.astral.sh/uv/) and Firefox are installed automatically by `/upwork-scraper:install`
 
 ## Installation
 
