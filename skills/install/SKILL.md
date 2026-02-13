@@ -1,39 +1,86 @@
 ---
 name: install
-description: Install plugin dependencies (uv, Python packages, browser). Run this after installing the plugin from the marketplace or cloning the repo.
+description: Install all plugin dependencies automatically. Run this after installing the plugin from the marketplace or cloning the repo.
 ---
 
-# Install Upwork Scraper Dependencies
+# Install Upwork Scraper — Full Setup
 
-Automate the setup of all dependencies needed for the Upwork Scraper plugin.
+Fully automated installation of everything needed to run the plugin. Run all steps sequentially — do NOT skip any step and do NOT ask for confirmation between steps.
 
-## Steps
+## Determine plugin root
 
-1. **Check uv**: Run `uv --version` via Bash.
-   - If it fails (not found), tell the user: "uv is required but not installed. Install it with: `curl -LsSf https://astral.sh/uv/install.sh | sh` (Mac/Linux) or `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"` (Windows), then restart Claude Code and run this skill again."
-   - If it succeeds, proceed.
+Set `PLUGIN_ROOT` for all subsequent commands. Try these in order until one works:
+1. If environment variable `CLAUDE_PLUGIN_ROOT` is set, use that.
+2. If `./pyproject.toml` exists and contains `upwork-job-scraper`, use `$PWD`.
+3. Use `~/.claude/plugins/cache/upwork-scraper/` as fallback.
 
-2. **Install Python dependencies**: Run via Bash:
-   ```
-   uv sync --directory "${CLAUDE_PLUGIN_ROOT:-$PWD}"
-   ```
-   - If `CLAUDE_PLUGIN_ROOT` is not set, try the current working directory.
-   - If that also fails, check `~/.claude/plugins/cache/upwork-scraper/` and use that path.
+Store the resolved path and use it for ALL subsequent commands.
 
-3. **Install browser**: Run via Bash:
-   ```
-   uv run --directory "${CLAUDE_PLUGIN_ROOT:-$PWD}" playwright install firefox
-   ```
+## Step 1 — Install uv (package manager)
 
-4. **Create .env** (optional): Check if `.env` exists in the plugin root.
-   - If not, copy `.env.example` to `.env`:
-     ```
-     cp "${CLAUDE_PLUGIN_ROOT:-$PWD}/.env.example" "${CLAUDE_PLUGIN_ROOT:-$PWD}/.env"
-     ```
+Run via Bash: `uv --version`
 
-5. **Verify**: Run via Bash:
-   ```
-   uv run --directory "${CLAUDE_PLUGIN_ROOT:-$PWD}" python -c "from src.server import mcp; print('MCP server OK')"
-   ```
-   - If it prints "MCP server OK", tell the user: "Installation complete! Restart Claude Code to activate the plugin, then use `/upwork-scraper:best-matches` to get started."
-   - If it fails, show the error and suggest troubleshooting steps.
+If uv is NOT found, install it automatically:
+- Detect the OS. Run via Bash: `uname -s` (returns "Linux", "Darwin", or contains "MINGW"/"MSYS" for Windows).
+- **Windows** (MINGW/MSYS): Run via Bash with timeout 60000:
+  ```
+  powershell -Command "irm https://astral.sh/uv/install.ps1 | iex"
+  ```
+- **Mac/Linux**: Run via Bash with timeout 60000:
+  ```
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
+- After install, verify with: `~/.local/bin/uv --version || uv --version`
+- If it still fails, tell the user to install uv manually from https://docs.astral.sh/uv/ and stop.
+
+## Step 2 — Install Python dependencies
+
+Run via Bash with timeout 120000:
+```
+uv sync --directory "$PLUGIN_ROOT"
+```
+
+If `uv` is at `~/.local/bin/uv` (wasn't in PATH), use the full path.
+
+## Step 3 — Install Firefox browser for Camoufox
+
+Run via Bash with timeout 300000:
+```
+uv run --directory "$PLUGIN_ROOT" playwright install firefox
+```
+
+This downloads ~80MB. Be patient and use the 5-minute timeout.
+
+## Step 4 — Create .env config
+
+Run via Bash:
+```
+test -f "$PLUGIN_ROOT/.env" || cp "$PLUGIN_ROOT/.env.example" "$PLUGIN_ROOT/.env"
+```
+
+## Step 5 — Verify installation
+
+Run via Bash:
+```
+uv run --directory "$PLUGIN_ROOT" python -c "from src.server import mcp; print('OK: MCP server ready')"
+```
+
+## Report results
+
+If all steps succeeded, print exactly this (filling in the actual values):
+
+```
+Installation complete!
+
+  Plugin root: <resolved path>
+  uv: <version>
+  Python packages: installed
+  Firefox browser: installed
+  Config: .env ready
+
+IMPORTANT: You must restart Claude Code for the MCP server to connect.
+Close this session and reopen Claude Code, then run:
+  /upwork-scraper:best-matches
+```
+
+If any step failed, show which step failed with the error output and suggest how to fix it. Do NOT print the success message if any step failed.
