@@ -7,6 +7,15 @@ description: Analyze Upwork job market requirements from cached data. Use when t
 
 Analyze cached job data to identify market trends and requirements.
 
+## How this plugin works
+
+This plugin provides MCP tools (prefixed `mcp__upwork-scraper__*` or called as `tool_*` below) that control a Camoufox browser for scraping Upwork. The plugin works from **any directory**.
+
+**If MCP tools are NOT available** (you don't see `mcp__upwork-scraper__*` in your tools): the MCP server failed to start, likely because dependencies aren't installed. Tell the user:
+> The plugin's MCP server is not connected. Run `/upwork-scraper:setup` to install dependencies, then restart Claude Code.
+
+Do NOT try workarounds (Chrome extension, curl, direct DB access). Only the MCP tools work.
+
 ## Steps
 
 1. **Check data**: Call `tool_get_scraping_stats` to see if there's enough cached data.

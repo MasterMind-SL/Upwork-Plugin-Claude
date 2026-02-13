@@ -6,7 +6,7 @@ Since Upwork has no public job search API (GraphQL API doesn't support it, RSS f
 
 ## Features
 
-- **One-Command Setup** - `/upwork-scraper:install` installs everything automatically
+- **One-Command Setup** - `/upwork-scraper:setup` installs everything automatically
 - **Best Matches** - Fetch your personalized Upwork job recommendations
 - **Job Search** - Search with keywords, filters, and boolean queries
 - **Market Analysis** - Understand skill demand, budget ranges, and trends
@@ -17,34 +17,48 @@ Since Upwork has no public job search API (GraphQL API doesn't support it, RSS f
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) v1.0.33+
 - Python 3.11+
-- [uv](https://docs.astral.sh/uv/) and Firefox are installed automatically by `/upwork-scraper:install`
+- [uv](https://docs.astral.sh/uv/) and Firefox are installed automatically by `/upwork-scraper:setup`
 
-## Installation
+## Quick Start
 
-### Option 1: Install from marketplace (recommended)
+### 1. Install the plugin
 
-This is the easiest way. Add the marketplace and install the plugin directly inside Claude Code:
+Inside Claude Code:
 
 ```
 /plugin marketplace add MasterMind-SL/Upwork-Plugin-Claude
 /plugin install upwork-scraper@upwork-plugin-claude
 ```
 
-Then restart Claude Code and run the install skill:
+### 2. Restart Claude Code
+
+Close and reopen Claude Code. You can open it from **any directory** — the plugin loads globally regardless of where you are.
+
+### 3. Install dependencies
 
 ```
-/upwork-scraper:install
+/upwork-scraper:setup
 ```
 
-This automatically installs Python dependencies and the browser. If you prefer to do it manually:
+This automatically installs `uv` (if needed), Python packages, and Firefox browser. When it finishes, **restart Claude Code again** so the MCP server can connect.
 
-```bash
-cd ~/.claude/plugins/cache/upwork-scraper/
-uv sync
-uv run playwright install firefox
+### 4. Start using it
+
+```
+/upwork-scraper:best-matches 20
 ```
 
-### Option 2: Install from source (for development)
+On the first scraping command, a browser window will open. Log in to Upwork and solve any CAPTCHAs. After that, your session is saved for future use.
+
+> **Note:** The MCP server won't connect until dependencies are installed. If skills seem broken (Claude tries wrong approaches), it means step 3 wasn't completed. Run `/upwork-scraper:setup` and restart.
+
+## Installation Options
+
+### Option 1: Marketplace (recommended)
+
+See [Quick Start](#quick-start) above.
+
+### Option 2: From source (for development)
 
 ```bash
 # Clone the repository
@@ -62,7 +76,7 @@ cp .env.example .env
 claude --plugin-dir .
 ```
 
-### Option 3: Add as a team marketplace
+### Option 3: Team marketplace
 
 Add this to your project's `.claude/settings.json` so team members get prompted to install it:
 
@@ -88,21 +102,11 @@ Once loaded, you get 5 slash commands:
 
 | Command | Description |
 |---------|-------------|
-| `/upwork-scraper:install` | Install dependencies (uv, packages, browser) |
+| `/upwork-scraper:setup` | Install dependencies (uv, packages, browser) |
 | `/upwork-scraper:best-matches` | Fetch your personalized Best Matches |
 | `/upwork-scraper:search <query>` | Search jobs (e.g., `/upwork-scraper:search python fastapi`) |
 | `/upwork-scraper:analyze <skill>` | Analyze market demand for a skill |
 | `/upwork-scraper:portfolio <skills>` | Get portfolio project ideas for your skills |
-
-### First-time setup
-
-After installing, run `/upwork-scraper:install` to set up dependencies automatically. Then the first time you run a scraping command, the plugin will:
-
-1. Open a Camoufox browser window
-2. Ask you to log in to Upwork and solve any CAPTCHAs
-3. Save your session cookies for future use
-
-After the initial login, the session persists across restarts.
 
 ### Example workflow
 
@@ -133,7 +137,7 @@ The plugin includes 5 specialized agents that Claude invokes automatically:
 | `rate-optimizer` | Analyzes market rates and recommends optimal pricing |
 | `profile-reviewer` | Reviews your Upwork profile against market demand |
 
-## Architecture
+## How It Works
 
 ```
 Claude Code <--STDIO/JSON-RPC--> MCP Server (src/server.py)
@@ -146,7 +150,34 @@ Claude Code <--STDIO/JSON-RPC--> MCP Server (src/server.py)
                                  (login + scraping)
 ```
 
-The MCP server auto-starts the Session Manager on `localhost:8024`. Camoufox handles authentication, CAPTCHA solving, and all page scraping. Job listings are parsed directly from browser-rendered HTML tiles; individual job details are fetched by navigating the browser to each job page.
+The plugin runs as an **MCP server** that communicates with Claude Code via STDIO. When loaded, it auto-starts a Session Manager on `localhost:8024` that controls a Camoufox browser. All scraping happens through the browser — Cloudflare blocks non-browser requests.
+
+The plugin provides 11 MCP tools that the skills and agents use. You don't call these tools directly — the skills and agents handle that for you.
+
+## Troubleshooting
+
+| Problem | Cause | Fix |
+|---------|-------|-----|
+| Skills run but Claude tries wrong approaches (Chrome extension, curl, etc.) | MCP server not connected — dependencies not installed | Run `/upwork-scraper:setup`, then restart Claude Code |
+| `/upwork-scraper:setup` can't find plugin directory | Plugin not installed or cache path changed | Re-install: `/plugin install upwork-scraper@upwork-plugin-claude` |
+| Browser opens but scraping returns 0 jobs | Session expired or Cloudflare block | Log in again in the browser window, solve CAPTCHAs |
+| "Permission to use Bash has been denied" during setup | Claude Code in restrictive permission mode | Allow Bash execution when prompted, or run setup manually (see below) |
+
+### Manual setup (if `/upwork-scraper:setup` can't run)
+
+Find the plugin directory and run:
+
+```bash
+# Default marketplace location:
+cd ~/.claude/plugins/cache/upwork-plugin-claude/upwork-scraper/*/
+
+# Install
+uv sync
+uv run playwright install firefox
+cp .env.example .env
+```
+
+Then restart Claude Code.
 
 ## Configuration
 

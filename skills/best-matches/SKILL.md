@@ -7,6 +7,15 @@ description: Fetch and display your Upwork Best Matches. Use when the user wants
 
 Fetch the user's personalized Upwork Best Matches using the MCP tools.
 
+## How this plugin works
+
+This plugin provides MCP tools (prefixed `mcp__upwork-scraper__*` or called as `tool_*` below) that control a Camoufox browser for scraping Upwork. The plugin works from **any directory**.
+
+**If MCP tools are NOT available** (you don't see `mcp__upwork-scraper__*` in your tools): the MCP server failed to start, likely because dependencies aren't installed. Tell the user:
+> The plugin's MCP server is not connected. Run `/upwork-scraper:setup` to install dependencies, then restart Claude Code.
+
+Do NOT try workarounds (Chrome extension, curl, direct DB access). Only the MCP tools work.
+
 ## Steps
 
 1. **Check session**: Call `tool_session_status` to check if the browser session is authenticated.

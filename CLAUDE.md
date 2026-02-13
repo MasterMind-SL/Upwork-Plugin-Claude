@@ -2,6 +2,60 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Plugin Runtime Instructions
+
+**IMPORTANT: Follow these instructions when the plugin is loaded and the user invokes any skill or asks about Upwork jobs.**
+
+### How this plugin works
+
+This plugin provides MCP tools (prefixed `mcp__upwork-scraper__*` or shown as `tool_*` in skills). ALL scraping, querying, and analysis goes through these MCP tools. Do NOT try to use Chrome browser extension, httpx, curl, or direct database access — only use the MCP tools provided by this plugin's server.
+
+The plugin works from **any directory**. The user does NOT need to be inside the plugin folder. Skills and tools are available globally once the plugin is loaded.
+
+### Detecting setup problems
+
+When any skill is invoked, first call `tool_session_status` to check connectivity:
+- **If the MCP tools are available** (you can see `mcp__upwork-scraper__*` in your tool list): the plugin is properly installed and the MCP server is running. Proceed with the skill.
+- **If the MCP tools are NOT available** (tool calls fail or tools don't appear): the MCP server failed to start. This almost always means dependencies aren't installed yet. Tell the user:
+
+```
+The Upwork Scraper plugin's MCP server is not connected. This usually means
+dependencies haven't been installed yet.
+
+Run this to set everything up:
+  /upwork-scraper:setup
+
+After it finishes, restart Claude Code for the MCP server to connect.
+```
+
+Do NOT attempt workarounds like reading the database directly, using browser extensions, or running the server manually. The correct fix is always: install dependencies → restart Claude Code.
+
+### First-time login flow
+
+After the plugin is installed and MCP tools are available, the first scraping command will need a browser login:
+1. Call `tool_start_session(headless=false)` — opens a visible Camoufox browser
+2. Tell the user to log in to Upwork and solve any CAPTCHAs in the browser window
+3. When the user confirms they've logged in, call `tool_check_auth` to verify
+4. The session persists across restarts (cookies saved to disk)
+
+### Available MCP tools
+
+| Tool | Purpose |
+|------|---------|
+| `tool_session_status` | Check if browser session is active |
+| `tool_start_session` | Launch Camoufox browser for login |
+| `tool_check_auth` | Verify authentication after user logs in |
+| `tool_stop_session` | Stop the browser session |
+| `tool_fetch_best_matches` | Scrape personalized Best Matches |
+| `tool_search_jobs` | Search jobs with keywords and filters |
+| `tool_get_job_details` | Get full details for a specific job |
+| `tool_list_cached_jobs` | Query locally cached jobs (no network) |
+| `tool_get_scraping_stats` | Database statistics |
+| `tool_analyze_market_requirements` | Aggregate market analysis |
+| `tool_suggest_portfolio_projects` | Portfolio suggestions from market data |
+
+---
+
 ## What This Is
 
 A **Claude Code Plugin** that scrapes Upwork jobs, analyzes market demand, and suggests portfolio projects. It bundles an MCP server, 5 skills (slash commands), and 5 specialized agents.
@@ -45,7 +99,7 @@ Inside Claude Code:
 /plugin install upwork-scraper@upwork-plugin-claude
 ```
 
-Then restart Claude Code and run `/upwork-scraper:install` to set up all dependencies automatically.
+Then restart Claude Code and run `/upwork-scraper:setup` to set up all dependencies automatically.
 
 Or install from a local clone:
 
@@ -65,7 +119,7 @@ upwork-scraper/
 │   └── marketplace.json     ← marketplace distribution config
 ├── .mcp.json                ← MCP server config (uv run python -m src.server)
 ├── skills/                  ← 5 slash commands (SKILL.md each)
-│   ├── install/
+│   ├── setup/
 │   ├── best-matches/
 │   ├── search/
 │   ├── analyze/
@@ -91,7 +145,7 @@ Components live at the plugin root, NOT inside `.claude-plugin/`. Only `plugin.j
 
 ## Setup
 
-The easiest way is to run `/upwork-scraper:install` after loading the plugin — it handles everything automatically (installs uv, Python packages, Firefox browser, and creates `.env`).
+The easiest way is to run `/upwork-scraper:setup` after loading the plugin — it handles everything automatically (installs uv, Python packages, Firefox browser, and creates `.env`).
 
 Manual setup:
 
@@ -139,7 +193,7 @@ uv run pytest tests/test_parser.py -k test_name  # Single test
 - **`.claude-plugin/plugin.json`**: Plugin manifest (name: `upwork-scraper`)
 - **`.claude-plugin/marketplace.json`**: Marketplace config for `/plugin marketplace add` distribution
 - **`.mcp.json`**: MCP server config. Uses `uv run --directory ${CLAUDE_PLUGIN_ROOT}` for cross-platform compatibility
-- **`skills/`**: 5 slash commands — `install`, `best-matches`, `search`, `analyze`, `portfolio`
+- **`skills/`**: 5 slash commands — `setup`, `best-matches`, `search`, `analyze`, `portfolio`
 - **`agents/`**: 5 subagents — `portfolio-designer`, `proposal-writer`, `job-evaluator`, `rate-optimizer`, `profile-reviewer`
 
 ## Skill YAML Frontmatter
